@@ -1,0 +1,196 @@
+-----------------DOCKER-----------------------
+
+--Historico: 
+para cada aplicação era usado um servidor diferente com um sistema operacional diferente que era requerido pela aplicação. Os servidores acabavam ociosos já que boa parte do seu processamento era gasto apenas quando havia sobrecarga de acessos.
+Para resolve isso, uma tecnologia chamada Hipervysor surgiu possibilitando o uso de máquinas virtuais que rodavam um segundo sistema operacional por cima de outro, possibilitando o funcionamento de várias aplicações em um só computador. A desvantagem, porém, surgiu com a manutenção trabalhosa das VM que, além de dispenderem atenção em termos de atualização constante, também consumiam parte do hardware, aumentando os custos por peças.
+
+--Container: 
+funciona junto do sistema operacional base e contém a aplicação que será executada dentro dele.
+	-elimina a necessidade de uma maquina virtual que precisaria de outro SO além de consumir hardwre
+	-criamos um container para cada aplicação e estes containers vão dividir as funcionalidades do sistema operacional
+	-agora as aplicações estão dividindo o mesmo sistema operacional e os próprios containers tem a lógica que se encarrega dessa divisão.
+	-VANTAGENS: é mais leve por não possuir sistema operacional e também mais rápido de subir. Funciona com camadas em cima de uma imagem de modo que não é necessário uma imagem por container
+
+--Docker:
+coleção de tencnologias para facilitar o deploy e a execução das aplicações.
+
+(caso não tenha conseguido instalar o docker: https://labs.play-with-docker.com/)
+
+*comandos no termial*
+
+docker version: exibe a versão do docker (docker --version)
+
+docker run NOME_DA_IMAGEM: cria um container com a respectiva imagem passada como parâmetro.  (docker run hello-world) faz o download e roda
+
+docker ps: mostra os containers que estão sendo executados no momento. Quando não há nada para o container executar, eles ficam parados e então nada é mostrado (docker ps -a: mostra os inativos tbm)
+
+docker start ID_DO_CONTAINER: inicia o container sem atrelar seu terminal ao dele. (docker start -a -it ID_DO_CONTAINER: para atrelar o terminal e interagir com ele)
+
+docker rm ID_DO_CONTAINER: remover container
+
+docker OBJETO prune: remove algo específico do docker (container-remove todos os containers inativos)
+
+docker rmi NOME_IMAGEM: remove imagem
+
+docker run -d -P dockersamples/static-site: abre a imagem de um site estático sem atrelar o terminal (-d) e abrindo uma porta aleatória para acessá-lo (-P)
+
+docker port ID_DO_CONTAINER: mostra  porta do container. http://localhost:"porta depois dos : no 80/tcp"
+
+docker run -d -P --name meu-site dockersamples/static-site --> --name: usado para nomear um container e parar de depender do ID dele pras coisas
+
+-p PORTA-MUNDO-EXTERNO:PORTA-CONTAINER: flag para definir a porta do container
+
+-e: flag para atribuir vairável ambiente ao container. Exemplo: -e AUTHOR "Isabelinha"
+
+docker ps -q: ver apenas os ids dos containers que estão rodando
+
+docker stop $(docker ps -q): para todos os containers de uma vez só
+
+-t NUMERO: flag para diminuir o tempo que o 'docker stop' espera para parar o container
+
+*volume: pastas criadas no container que, na verdade, estão salvas no docker host de modo que, quando excluídos os containers, os arquivos daquela pasta não são perdidos
+
+docker run -v "/var/www" ubuntu: exemplo para criação de volume na imagem do ubuntu
+
+docker inspect ID_DO_CONTAINER: descobre a que pasta no docker host o volume faz referência (Mounts)
+
+-->para especificar uma pasta para o volume, basta colocar o endereço da pasta antes de ":/var/www"
+
+--Docker file:
+usado para criar uma imagem.
+
+FROM node:latest				--> imagem base
+MAINTAINER isabela_ferreira		--> quem criou a imagem
+COPY . /var/www					--> copiar quais arquivos para onde
+WORKDIR /var/www				--> diretorio
+RUN npm install					-->
+ENTRYPOINT npm start			--> estado de início do container
+EXPOSE 3000						--> porta
+
+Salvar com o nome dockerfile ou extensão dockerfile
+
+--Docker Hub
+salva as imagens e pastas de containers
+
+docker login: loga na conta do Docker Hub
+docker push NOME_DA_IMAGEM: sobe a imagem para o Docker Hub
+docker pull NOME_DA_IMAGEM: baixa a imagem
+docker pull NOME_USUARIO/NOME_IMAGEM: baixa uma imagem de um usuário especifico
+
+--Networking no Docker:
+por padrão, todos os containers que estão numa mesma máquina funcionam numa mesma rede. O Docker não permite acessar os containers na rede pelo nome, apenas pelo IP
+
+docker network create --driver bridge nome-da-rede: cria uma nova rede
+docker network ls: lista todas as redes existentes
+
+docker run -it --name NOME_CONTAINER --network NOME_REDE ubuntu: criar container ubuntu com rede especificada
+
+--Docker Compose:
+auxilia a lidar com múltiplos containers
+
+*docker-compose.yml
+version: '3'
+services:
+  nginx:
+    build:
+      dockerfile: ./docker/nginx.dockerfile
+      context: .
+    image: isabelinha/nginx
+    container_name: nginx
+    port: 
+      - "1234:80"
+    networks:
+      - production-network
+  mongodb:
+    image: mongo
+    networks:
+      - production-network
+  node1:
+    build:
+      dockerfile: ./docker/alura-books.dockerfile
+      context: .
+    image: douglasq/alura-books
+    container_name: alura-books
+    port:
+      - "3000"
+    networks: 
+      - production-network
+node2:
+    build:
+      dockerfile: ./docker/alura-books.dockerfile
+      context: .
+    image: douglasq/alura-books
+    container_name: alura-books2
+    port:
+      - "3000"
+    networks: 
+      - production-network
+node3:
+    build:
+      dockerfile: ./docker/alura-books.dockerfile
+      context: .
+    image: douglasq/alura-books
+    container_name: alura-books3
+    port:
+      - "3000"
+    networks: 
+      - production-network
+networks:
+  production-network:
+    driver: bridge
+
+
+docker-compose up: subir serviços do docker-compose file
+docker-compose up -d: sobe serviços sem logs
+
+ctrl+c : para os serviços
+docker-compose ps: lista os serviços que estão rodando
+docker-compose down: para e remove os containers qdo eles foram iniciados sem o log
+docker-compose restart: reinicia os serviços
+
+--Microsserviços:
+instâncias menores que dividem e coordenam o trabalho ao invés de uma única aplicação enorme. Com uma base de código menor, fica mais fácil reparar, monitorar, atualizar e escalaá-lo. Outra facilidade é que um dev novo não precisa conhecer toda o sistema para alterar uma funcionalidade. É importante que um microsserviço seja acessível remotamente.
+
+--Docker Swarm:
+facilita a criação e administração de um cluster de containers (um microsserviço rodando em vários containers e em mais de uma máquina física)
+
+******Lista de comandos******
+
+Segue a lista com os principais comandos utilizados durante o curso:
+
+Comandos relacionados às informações
+	-docker version - exibe a versão do docker que está instalada.
+	-docker inspect ID_CONTAINER - retorna diversas informações sobre o container.
+	-docker ps - exibe todos os containers em execução no momento.
+	-docker ps -a - exibe todos os containers, independentemente de estarem em execução ou não.
+Comandos relacionados à execução
+	-docker run NOME_DA_IMAGEM - cria um container com a respectiva imagem passada como parâmetro.
+	-docker run -it NOME_DA_IMAGEM - conecta o terminal que estamos utilizando com o do container.
+	-docker run -d -P --name NOME dockersamples/static-site - ao executar, dá um nome ao container.
+	-docker run -d -p 12345:80 dockersamples/static-site - define uma porta específica para ser atribuída à porta 80 do container, neste caso 12345.
+	-docker run -v "CAMINHO_VOLUME" NOME_DA_IMAGEM - cria um volume no respectivo caminho do container.
+	-docker run -it --name NOME_CONTAINER --network NOME_DA_REDE NOME_IMAGEM - cria um container especificando seu nome e qual rede deverá ser usada.
+Comandos relacionados à inicialização/interrupção
+	-docker start ID_CONTAINER - inicia o container com id em questão.
+	-docker start -a -i ID_CONTAINER - inicia o container com id em questão e integra os terminais, além de permitir interação entre ambos.
+	-docker stop ID_CONTAINER - interrompe o container com id em questão.
+Comandos relacionados à remoção
+	-docker rm ID_CONTAINER - remove o container com id em questão.
+	-docker container prune - remove todos os containers que estão parados.
+	-docker rmi NOME_DA_IMAGEM - remove a imagem passada como parâmetro.
+Comandos relacionados à construção de Dockerfile
+	-docker build -f Dockerfile - cria uma imagem a partir de um Dockerfile.
+	-docker build -f Dockerfile -t NOME_USUARIO/NOME_IMAGEM - constrói e nomeia uma imagem não-oficial.
+	-docker build -f Dockerfile -t NOME_USUARIO/NOME_IMAGEM CAMINHO_DOCKERFILE - constrói e nomeia uma imagem não-oficial informando o caminho para o Dockerfile.
+Comandos relacionados ao Docker Hub
+	-docker login - inicia o processo de login no Docker Hub.
+	-docker push NOME_USUARIO/NOME_IMAGEM - envia a imagem criada para o Docker Hub.
+	-docker pull NOME_USUARIO/NOME_IMAGEM - baixa a imagem desejada do Docker Hub.
+Comandos relacionados à rede
+	-hostname -i - mostra o ip atribuído ao container pelo docker (funciona apenas dentro do container).
+	-docker network create --driver bridge NOME_DA_REDE - cria uma rede especificando o driver desejado.
+Comandos relacionados ao docker-compose
+	-docker-compose build - Realiza o build dos serviços relacionados ao arquivo docker-compose.yml, assim como verifica a sua sintaxe.
+	-docker-compose up - Sobe todos os containers relacionados ao docker-compose, desde que o build já tenha sido executado.
+	-docker-compose down - Para todos os serviços em execução que estejam relacionados ao arquivo docker-compose.yml.
+
